@@ -3,20 +3,20 @@
 
 #include "defines.h"
 
-struct route
-{
-	route *next;
-	in_addr ip4prefix;
-	uint32_t prefixlen;
-	nexthop *nexthop;
-};
-
 struct nexthop
 {
 	nexthop *next;
 	char *ifname;
 	uint32_t ifindex; // Nexthop address
 	in_addr nexthopaddr;
+};
+
+struct route
+{
+	route *next;
+	in_addr ip4prefix;
+	uint32_t prefixlen;
+	struct nexthop *nexthop;
 };
 
 struct nextaddr

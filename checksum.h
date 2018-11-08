@@ -44,7 +44,7 @@
 //     struct in_addr ip_src, ip_dst;  /* source and dest address */
 //   };  
 
-int32_t check_sum(uint16_t *iphd, uint16_t checksum);
-uint16_t count_check_sum(uint16_t *iphd);
+int32_t check_sum(ip* iphd, uint16_t checksum);
+uint16_t count_check_sum(ip* iphd, bool decline);
 
 #endif

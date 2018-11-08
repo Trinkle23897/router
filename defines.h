@@ -25,6 +25,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <vector>
 
 /* 以太网帧首部长度 */
 #define ETHER_HEADER_LEN sizeof(ether_header)
