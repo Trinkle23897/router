@@ -35,5 +35,6 @@
 #define ETHER_IP_LEN ETHER_HEADER_LEN + IP_HEADER_LEN
 /* IP地址长度 */
 #define IP_ADDR_LEN 4
+#define MACADDR_T 6
 
 #endif
