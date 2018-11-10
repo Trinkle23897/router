@@ -1,12 +1,12 @@
 #include "arpfind.h"
 
-int32_t arpGet(arpmac* srcmac, nextaddr* nexthopinfo)
+int32_t arpGet(arpmac* srcmac, nexthop* nexthopinfo)
 {
 	arpreq arp_req;
 	sockaddr_in *sin = (sockaddr_in*)&(arp_req.arp_pa);
 	memset(&arp_req, 0, sizeof(arp_req));
 	sin->sin_family = AF_INET;
-	sin->sin_addr.s_addr = nexthopinfo->ipv4addr.s_addr;
+	sin->sin_addr.s_addr = nexthopinfo->nexthopaddr.s_addr;
 	// eth1 is the name of interface of next hop
 	strncpy(arp_req.arp_dev, nexthopinfo->ifname, IF_NAMESIZE - 1);
 	int32_t arp_fd = socket(AF_INET, SOCK_DGRAM, 0);

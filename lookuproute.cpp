@@ -7,8 +7,10 @@ std::vector<route> route_table;
  */
 int32_t insert_route(uint32_t ip4prefix, uint32_t prefixlen, char *ifname, uint32_t ifindex, uint32_t nexthopaddr)
 {
+    fprintf(stderr, "insert %d.%d.%d.%d/%d %s %d %d.%d.%d.%d size #%d\n", TOIP(ip4prefix), prefixlen, ifname, ifindex, TOIP(nexthopaddr), route_table.size());
+    // insert 192.168.6.0/24 eth14 3 192.168.3.2
 	route tmp;
-	tmp.ip4prefix.s_addr = ip4prefix;
+	tmp.ip4prefix.s_addr = ntohl(ip4prefix);
 	tmp.prefixlen = prefixlen;
 	tmp.nexthop = new nexthop;
 	tmp.nexthop->ifname = ifname;
@@ -23,9 +25,24 @@ int32_t insert_route(uint32_t ip4prefix, uint32_t prefixlen, char *ifname, uint3
  * 参数1是目的IP地址，参数2下一跳和出接口信息
  * 注意：查找算法与所用路由表存储结构相关
  */
-int32_t lookup_route(in_addr dstaddr, nextaddr *nexthopinfo)
+int32_t lookup_route(in_addr dstaddr, nexthop *nexthopinfo)
 {
-	fprintf(stderr, "lookup: %X\n", dstaddr.s_addr);
+	fprintf(stderr, "lookup: %d.%d.%d.%d in #%d\n", TOIP(dstaddr.s_addr), route_table.size());
+    uint32_t dstip = ntohl(dstaddr.s_addr);
+    int32_t mask = -1;
+    uint32_t full_mask = 0xFFFFFFFF;
+    for (std::vector<route>::iterator i = route_table.begin(); i != route_table.end(); ++i) {
+        uint32_t tmpip = (*i).ip4prefix.s_addr;
+        uint32_t pre = (*i).prefixlen;
+        if (pre >= mask && (tmpip & (full_mask << pre)) == (dstip & (full_mask << pre))) {
+            mask = pre;
+            nexthopinfo = (*i).nexthop;
+        }
+    }
+    if (mask < 0)
+        return -1;
+    else
+        return 0;
 }
 
 /*
@@ -33,5 +50,11 @@ int32_t lookup_route(in_addr dstaddr, nextaddr *nexthopinfo)
  */
 int32_t delete_route(in_addr dstaddr, uint32_t prefixlen)
 {
-	fprintf(stderr, "delete route: %X %d\n", dstaddr.s_addr, prefixlen);
+	fprintf(stderr, "delete route: %d.%d.%d.%d/%d size %d\n", TOIP(dstaddr.s_addr), prefixlen, route_table.size());
+    // delete route: 192.168.3.2/24
+    for (std::vector<route>::iterator i = route_table.begin(); i != route_table.end();)
+        if ((*i).prefixlen == prefixlen && ((*i).nexthop)->nexthopaddr.s_addr == dstaddr.s_addr)
+            i = route_table.erase(i);
+        else
+            ++i;
 }

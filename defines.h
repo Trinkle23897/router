@@ -37,4 +37,6 @@
 #define IP_ADDR_LEN 4
 #define MACADDR_T 6
 
+#define TOIP(x) (x)%256, ((x)>>8)%256, ((x)>>16)%256, ((x>>24))%256
+
 #endif

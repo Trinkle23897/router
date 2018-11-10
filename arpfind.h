@@ -9,6 +9,6 @@ struct arpmac
 	uint32_t index;
 };
 
-int32_t arpGet(arpmac*, nextaddr*);
+int32_t arpGet(arpmac*, nexthop*);
 
 #endif
