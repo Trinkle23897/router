@@ -35,8 +35,8 @@
 #define ETHER_IP_LEN ETHER_HEADER_LEN + IP_HEADER_LEN
 /* IP地址长度 */
 #define IP_ADDR_LEN 4
-#define MACADDR_T 6
 
 #define TOIP(x) (x)%256, ((x)>>8)%256, ((x)>>16)%256, ((x>>24))%256
+#define TOMAC(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
 
 #endif

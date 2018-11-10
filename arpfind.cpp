@@ -16,10 +16,10 @@ int32_t arpGet(arpmac* srcmac, nexthop* nexthopinfo)
 		return -1;
 	}
 	if (arp_req.arp_flags & ATF_COM) {
-		srcmac->mac = new unsigned char[MACADDR_T];
+		srcmac->mac = new unsigned char[ETH_ALEN];
 		// entry found
 		// the mac address can be directed copied to eth_header->ether_dhost
-		memcpy(srcmac->mac, (unsigned char *)arp_req.arp_ha.sa_data, sizeof(unsigned char) * MACADDR_T);
+		memcpy(srcmac->mac, (unsigned char *)arp_req.arp_ha.sa_data, sizeof(unsigned char) * ETH_ALEN);
 		printf("Destination MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 		srcmac->mac[0], srcmac->mac[1], srcmac->mac[2], srcmac->mac[3], srcmac->mac[4], srcmac->mac[5]);
 	} else {

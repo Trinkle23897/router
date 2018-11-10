@@ -81,6 +81,10 @@ int main(int argc, char** argv)
 		if (recvlen > 0)
 		{
 			ip_recvpkt = (ip*)(skbuf + ETHER_HEADER_LEN);
+            ether_header* eh = (ether_header*)skbuf;
+            fprintf(stderr, "dhost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_dhost));
+            fprintf(stderr, "shost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_shost));
+            fprintf(stderr, "ether_type %d\n", eh->ether_type);
 			if (ip_recvpkt->ip_src.s_addr != ip_recvpkt->ip_dst.s_addr && ip_recvpkt->ip_dst.s_addr != inet_addr("255.255.255.255"))
 			{
 				// 分析打印ip数据包的源和目的ip地址
@@ -115,7 +119,18 @@ int main(int argc, char** argv)
 					fprintf(stderr, "arp find err\n");
 					continue;
 				}
-                ip_transmit(iphead, );
+                struct ifreq ifr;
+                int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+                strncpy(ifr.ifr_name, nexthopinfo->ifname, IF_NAMESIZE);
+                if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == 0) {
+                    memcpy(eh->ether_shost, eh->ether_dhost, ETH_ALEN);
+                    memcpy(eh->ether_dhost, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+                    eh->ether_type = htons(ETHERTYPE_IP);
+                } else {
+                    fprintf(stderr, "could not find %s mac addr\n", nexthopinfo->ifname);
+                }
+                close(sockfd);
+                //ip_transmit(iphead, );
 				// 调用计算校验和函数count_check_sum，返回新的校验和
 				iphead->ip_sum = count_check_sum(iphead, true);
 				// send ether icmp
@@ -134,15 +149,6 @@ int main(int argc, char** argv)
 }
 /*
 查某个 interface 的 MAC 的方法:
-struct ifreq ifr;
-int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-strncpy(ifr.ifr_name, "eth1", IF_NAMESIZE);
-if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == 0) {
-    memcpy(mac_a, ifr.ifr_hwaddr.sa_data, 6);
-} else {
-    // something really goes wrong here, doesn't it?
-}
-close(sockfd);
 */
 /*
 发包的方法:
