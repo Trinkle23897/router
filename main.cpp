@@ -83,9 +83,9 @@ int main(int argc, char** argv)
 		{
 			ip_recvpkt = (ip*)(skbuf + ETHER_HEADER_LEN);
             ether_header* eh = (ether_header*)skbuf;
-            fprintf(stderr, "dhost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_dhost));
-            fprintf(stderr, "shost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_shost));
-            fprintf(stderr, "ether_type %d\n", eh->ether_type);
+            // fprintf(stderr, "dhost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_dhost));
+            // fprintf(stderr, "shost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_shost));
+            // fprintf(stderr, "ether_type %d\n", eh->ether_type);
 			if (ip_recvpkt->ip_src.s_addr != ip_recvpkt->ip_dst.s_addr && ip_recvpkt->ip_dst.s_addr != inet_addr("255.255.255.255"))
 			{
 				// 分析打印ip数据包的源和目的ip地址
@@ -104,7 +104,7 @@ int main(int argc, char** argv)
 				// 调用查找路由函数lookup_route，获取下一跳ip地址和出接口
 				if (lookup_route(iphead->ip_dst, nexthopinfo) == 0)
 				{
-					//success
+                    fprintf(stderr, "find next hop %x\n", (nexthopinfo->nexthopaddr.s_addr));
 				}
 				else {
 					fprintf(stderr, "no next hop\n");
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 				//调用arpGet获取下一跳的mac地址
 				if (arpGet(srcmac, nexthopinfo) == 0)
 				{
-					// success
+                    fprintf(stderr, "get next hop arp\n");
 				}
 				else {
 					fprintf(stderr, "arp find err\n");
@@ -124,9 +124,13 @@ int main(int argc, char** argv)
                 int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
                 strncpy(ifr.ifr_name, nexthopinfo->ifname, IF_NAMESIZE);
                 if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == 0) {
-                    memcpy(eh->ether_shost, eh->ether_dhost, ETH_ALEN);
-                    memcpy(eh->ether_dhost, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+                    fprintf(stderr, "src: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_shost));
+                    fprintf(stderr, "dst: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_dhost));
+                    memcpy(eh->ether_dhost, srcmac->mac, ETH_ALEN);
+                    memcpy(eh->ether_shost, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
                     eh->ether_type = htons(ETHERTYPE_IP);
+                    fprintf(stderr, "src: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_shost));
+                    fprintf(stderr, "dst: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_dhost));
                 } else {
                     fprintf(stderr, "could not find %s mac addr\n", nexthopinfo->ifname);
                 }

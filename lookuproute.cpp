@@ -16,6 +16,7 @@ int32_t insert_route(uint32_t ip4prefix, uint32_t prefixlen, char *ifname, uint3
 	tmp.nexthop->ifname = ifname;
 	tmp.nexthop->ifindex = ifindex;
 	tmp.nexthop->nexthopaddr.s_addr = nexthopaddr;
+    fprintf(stderr, "nextaddr: %x %x\n", nexthopaddr, tmp.nexthop->nexthopaddr.s_addr);
 	tmp.nexthop->next = NULL;
 	route_table.push_back(tmp);
 	return 0;
@@ -29,20 +30,25 @@ int32_t lookup_route(in_addr dstaddr, nexthop *nexthopinfo)
 {
 	fprintf(stderr, "lookup: %d.%d.%d.%d in #%d\n", TOIP(dstaddr.s_addr), route_table.size());
     uint32_t dstip = ntohl(dstaddr.s_addr);
-    int32_t mask = -1;
+    uint32_t mask = 0;
     uint32_t full_mask = 0xFFFFFFFF;
     for (std::vector<route>::iterator i = route_table.begin(); i != route_table.end(); ++i) {
         uint32_t tmpip = (*i).ip4prefix.s_addr;
         uint32_t pre = (*i).prefixlen;
-        if (pre >= mask && (tmpip & (full_mask << pre)) == (dstip & (full_mask << pre))) {
+        fprintf(stderr, "diff %x %x\n%x %x\n", tmpip, dstip, (tmpip & (full_mask << (32 - pre))), (dstip & (full_mask << (32 - pre))));
+        if (pre >= mask && (tmpip & (full_mask << (32 - pre))) == (dstip & (full_mask << (32 - pre)))) {
             mask = pre;
-            nexthopinfo = (*i).nexthop;
+            memcpy(nexthopinfo, (*i).nexthop, sizeof(nexthop));
+            // nexthopinfo = (*i).nexthop;
+            fprintf(stderr, "match %d.%d.%d.%d/%d\n", TOIP(ntohl(tmpip)), pre);
         }
     }
-    if (mask < 0)
+    if (mask == 0)
         return -1;
-    else
+    else {
+        fprintf(stderr, "final: %x\n", nexthopinfo->nexthopaddr.s_addr);
         return 0;
+    }
 }
 
 /*
