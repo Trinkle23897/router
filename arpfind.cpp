@@ -2,13 +2,13 @@
 
 int32_t arpGet(arpmac* srcmac, nexthop* nexthopinfo)
 {
-    fprintf(stderr, "begin arp\n");
+	fprintf(stderr, "begin arp\n");
 	arpreq arp_req;
 	sockaddr_in *sin = (sockaddr_in*)&(arp_req.arp_pa);
 	memset(&arp_req, 0, sizeof(arp_req));
 	sin->sin_family = AF_INET;
 	sin->sin_addr.s_addr = nexthopinfo->nexthopaddr.s_addr;
-    fprintf(stderr, "nexthop addr: %d.%d.%d.%d\n", TOIP(nexthopinfo->nexthopaddr.s_addr));
+	fprintf(stderr, "nexthop addr: %d.%d.%d.%d\n", TOIP(nexthopinfo->nexthopaddr.s_addr));
 	// eth1 is the name of interface of next hop
 	strncpy(arp_req.arp_dev, nexthopinfo->ifname, IF_NAMESIZE - 1);
 	int32_t arp_fd = socket(AF_INET, SOCK_DGRAM, 0);

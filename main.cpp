@@ -10,22 +10,22 @@ void *thr_fn(void *arg)
 {
 	selfroute selfrt;
 	char *ifname = new char[IF_NAMESIZE];
-    int32_t sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in server_addr;
-    bzero(&server_addr, sizeof(sockaddr_in));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    server_addr.sin_port = htons(800);
-    if (bind(sock_fd, (sockaddr*)(&server_addr), sizeof(sockaddr))) {
-        fprintf(stderr, "cannot bind socket 800\n");
-        return NULL;
-    }
-    listen(sock_fd, 5);
+	int32_t sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+	sockaddr_in server_addr;
+	bzero(&server_addr, sizeof(sockaddr_in));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server_addr.sin_port = htons(800);
+	if (bind(sock_fd, (sockaddr*)(&server_addr), sizeof(sockaddr))) {
+		fprintf(stderr, "cannot bind socket 800\n");
+		return NULL;
+	}
+	listen(sock_fd, 5);
 	// add-24 del-25
 	while (1)
 	{
-        int32_t conn_fd = accept(sock_fd, (sockaddr*)NULL, NULL);
-        int32_t ret = recv(conn_fd, &selfrt, sizeof(selfroute), 0);
+		int32_t conn_fd = accept(sock_fd, (sockaddr*)NULL, NULL);
+		int32_t ret = recv(conn_fd, &selfrt, sizeof(selfroute), 0);
 		if (ret > 0)
 		{
 			if (selfrt.cmdnum == 24)
@@ -36,17 +36,15 @@ void *thr_fn(void *arg)
 			else if (selfrt.cmdnum == 25)
 				delete_route(selfrt.nexthop, selfrt.prefixlen);
 		}
-
 	}
-
 }
 
 void analyseIP(ip*iphd)
 {
-    static int32_t cnt = 0;
-    uint32_t src = iphd->ip_src.s_addr;
-    uint32_t dst = iphd->ip_dst.s_addr;
-    fprintf(stderr, "%4d src: %d.%d.%d.%d    dst: %d.%d.%d.%d\n", ++cnt, TOIP(src), TOIP(dst));
+	static int32_t cnt = 0;
+	uint32_t src = iphd->ip_src.s_addr;
+	uint32_t dst = iphd->ip_dst.s_addr;
+	fprintf(stderr, "%4d src: %d.%d.%d.%d    dst: %d.%d.%d.%d\n", ++cnt, TOIP(src), TOIP(dst));
 }
 
 int main(int argc, char** argv)
@@ -82,10 +80,10 @@ int main(int argc, char** argv)
 		if (recvlen > 0)
 		{
 			ip_recvpkt = (ip*)(skbuf + ETHER_HEADER_LEN);
-            ether_header* eh = (ether_header*)skbuf;
-            // fprintf(stderr, "dhost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_dhost));
-            // fprintf(stderr, "shost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_shost));
-            // fprintf(stderr, "ether_type %d\n", eh->ether_type);
+			ether_header* eh = (ether_header*)skbuf;
+			// fprintf(stderr, "dhost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_dhost));
+			// fprintf(stderr, "shost: %x:%x:%x:%x:%x:%x\n", TOMAC(eh->ether_shost));
+			// fprintf(stderr, "ether_type %d\n", eh->ether_type);
 			if (ip_recvpkt->ip_src.s_addr != ip_recvpkt->ip_dst.s_addr && ip_recvpkt->ip_dst.s_addr != inet_addr("255.255.255.255"))
 			{
 				// 分析打印ip数据包的源和目的ip地址
@@ -104,7 +102,7 @@ int main(int argc, char** argv)
 				// 调用查找路由函数lookup_route，获取下一跳ip地址和出接口
 				if (lookup_route(iphead->ip_dst, nexthopinfo) == 0)
 				{
-                    fprintf(stderr, "find next hop %x\n", (nexthopinfo->nexthopaddr.s_addr));
+					fprintf(stderr, "find next hop %x\n", (nexthopinfo->nexthopaddr.s_addr));
 				}
 				else {
 					fprintf(stderr, "no next hop\n");
@@ -114,27 +112,23 @@ int main(int argc, char** argv)
 				//调用arpGet获取下一跳的mac地址
 				if (arpGet(srcmac, nexthopinfo) == 0)
 				{
-                    fprintf(stderr, "get next hop arp\n");
+					fprintf(stderr, "get next hop arp\n");
 				}
 				else {
 					fprintf(stderr, "arp find err\n");
 					continue;
 				}
-                struct ifreq ifr;
-                int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-                strncpy(ifr.ifr_name, nexthopinfo->ifname, IF_NAMESIZE);
-                if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == 0) {
-                    fprintf(stderr, "src: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_shost));
-                    fprintf(stderr, "dst: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_dhost));
-                    memcpy(eh->ether_dhost, srcmac->mac, ETH_ALEN);
-                    memcpy(eh->ether_shost, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
-                    eh->ether_type = htons(ETHERTYPE_IP);
-                    fprintf(stderr, "src: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_shost));
-                    fprintf(stderr, "dst: %0x:%0x:%0x:%0x:%0x:%0x\n", TOMAC(eh->ether_dhost));
-                } else {
-                    fprintf(stderr, "could not find %s mac addr\n", nexthopinfo->ifname);
-                }
-                close(sockfd);
+				struct ifreq ifr;
+				int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+				strncpy(ifr.ifr_name, nexthopinfo->ifname, IF_NAMESIZE);
+				if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) == 0) {
+					memcpy(eh->ether_dhost, srcmac->mac, ETH_ALEN);
+					memcpy(eh->ether_shost, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+					eh->ether_type = htons(ETHERTYPE_IP);
+				} else {
+					fprintf(stderr, "could not find %s mac addr\n", nexthopinfo->ifname);
+				}
+				close(sockfd);
 				iphead->ip_sum = count_check_sum(iphead, true);
 				// 调用计算校验和函数count_check_sum，返回新的校验和
 				// send ether icmp

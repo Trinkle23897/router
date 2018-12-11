@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <vector>
 
+
 /* 以太网帧首部长度 */
 #define ETHER_HEADER_LEN sizeof(ether_header)
 /* 整个ip首部长度 */
@@ -38,5 +39,21 @@
 
 #define TOIP(x) (x)%256, ((x)>>8)%256, ((x)>>16)%256, ((x>>24))%256
 #define TOMAC(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
+
+#define RIP_VERSION		2
+#define RIP_REQUEST		1
+#define RIP_RESPONSE	2
+#define RIP_INFINITY	16
+#define RIP_PORT		520
+#define RIP_PACKET_HEAD	4
+#define RIP_MAX_PACKET	504
+#define RIP_MAX_ENTRY	25
+#define ROUTE_MAX_ENTRY	256
+#define RIP_GROUP		"224.0.0.9"
+
+#define RIP_CHECK_OK	1
+#define RIP_CHECK_FAIL	0
+#define AddRoute		24
+#define DelRoute		25
 
 #endif
