@@ -69,7 +69,7 @@ void rip_multicast(uint32_t addr)
 {
 	// 封装请求包  command = 1, version = 2, family = 0, metric = 16
 	TRipPkt sendpkt;
-	sendpkt.ucCommand = RIP_REQUEST;
+	sendpkt.ucCommand = RIP_RESPONSE;
 	sendpkt.ucVersion = RIP_VERSION;
 	sendpkt.usZero = 0;
 	int index = 0;
@@ -112,28 +112,41 @@ void* rip_recvpkt(void* args)
 	}
 	// 把本地地址加入到组播
 	sockaddr_in* localSock = new sockaddr_in();
+	socklen_t sendsize = sizeof(sockaddr_in);
 	localSock->sin_family = AF_INET;
 	localSock->sin_port = htons(RIP_PORT);
 	localSock->sin_addr.s_addr = INADDR_ANY;
 	if (bind(sd, (sockaddr*)localSock, sizeof(sockaddr_in))) {
 		perror("Binding datagram socket error\n");
 		close(sd);
-		exit(1);
+		return NULL;
 	} else printf("Binding datagram socket...OK.\n");
+	
+	ip_mreq_source mreq;
+	mreq.imr_multiaddr.s_addr = inet_addr(RIP_GROUP);
+	for (int i = 0; i < iface.size(); ++i) {
+		mreq.imr_interface.s_addr = iface[i].addr;
+		mreq.imr_sourceaddr.s_addr = iface[i].addr;
+		if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(ip_mreq)) < 0) {
+			perror("join multicast group failed\n");
+			return NULL;
+		}
+		if (setsockopt(sd, IPPROTO_IP, IP_BLOCK_SOURCE, &mreq, sizeof(mreq)) < 0) {
+			perror("block multicast from local interface failed\n");
+			return NULL;
+		}
+	}
 
-	listen(sd, 5);
-	TRipPkt recvpkt;
 	int cnt = 0;
+	uint8_t buf[sizeof(TRipPkt)];
+	TRipPkt* recvpkt = (TRipPkt*)buf;
 	while(1) {
 		// 接收rip报文   存储接收源ip地址
 		// 判断command类型，request 或 response
-		int conn_fd = accept(sd, (sockaddr*)NULL, NULL);
-		int ret = recv(conn_fd, &recvpkt, sizeof(TRipPkt), 0);
-		close(conn_fd);
+		int ret = recvfrom(sd, buf, sizeof(TRipPkt), 0, (sockaddr*)localSock, &sendsize);
 		if (ret > 0) {
-			printf("ret %d\tcnt: %d\tucCammand: %s\tucVersion: %s\n", ret, ++cnt, recvpkt.ucCommand, recvpkt.ucVersion);
+			printf("ret %d\tcnt: %d\tucCammand: %d\tucVersion: %d\n", ret, ++cnt, recvpkt->ucCommand, recvpkt->ucVersion);
 		}
-		// 接收到的信息存储到全局变量里，方便request_Handle和response_Handle处理
 	}
 }
 
@@ -192,7 +205,8 @@ void start_rip()
 	get_local_info();
 	// 创建更新线程，30s更新一次,向组播地址更新Update包
 	pthread_t p0, p1;
-	// int32_t pd0 = pthread_create(&p0, NULL, rip_recvpkt, NULL);
+	//int32_t pd0 = pthread_create(&p0, NULL, rip_recvpkt, NULL);
+	//count_30s(NULL);
 	int32_t pd1 = pthread_create(&p1, NULL, count_30s, NULL);
 	rip_recvpkt(NULL);
 }
