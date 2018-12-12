@@ -55,5 +55,6 @@
 #define RIP_CHECK_FAIL	0
 #define AddRoute		24
 #define DelRoute		25
+#define INTERFACE_MAX	10
 
 #endif

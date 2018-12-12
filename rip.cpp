@@ -4,8 +4,8 @@ TRtEntry *g_pstRouteEntry = NULL;
 TRipPkt *requestpkt = NULL;
 TRipPkt *recvpkt = NULL;
 
-char *pcLocalAddr[IF_NAMESIZE]={};//存储本地接口ip地址
-char *pcLocalName[IF_NAMESIZE]={};//存储本地接口的接口名
+char *pcLocalAddr[INTERFACE_MAX] = {}; // 存储本地接口ip地址
+char *pcLocalName[INTERFACE_MAX] = {}; // 存储本地接口的接口名
 
 void requestpkt_Encapsulate()
 {
@@ -96,7 +96,7 @@ void rippacket_Receive()
 *Ret  ：
 *
 *******************************************************/
-void rippacket_Send(struct in_addr stSourceIp)
+void rippacket_Send(in_addr stSourceIp)
 {
 	//本地ip设置
 
@@ -168,25 +168,39 @@ void rippacket_Multicast(char *pcLocalAddr)
 		perror("setsockopt():IP_MULTICAST_LOOP\n");
 	}
 
+	sockaddr_in* localSock = new sockaddr_in();
+	localSock->sin_family = AF_INET;
+	localSock->sin_port = htons(RIP_PORT);
+	localSock->sin_addr.s_addr = INADDR_ANY;
+	if (bind(fd, (sockaddr*)localSock, sizeof(sockaddr_in))) {
+		perror("Binding datagram socket error\n");
+		close(fd);
+		exit(1);
+	} else printf("Binding datagram socket...OK.\n");
+	in_addr localAddr;
+	localAddr.s_addr = inet_addr(pcLocalAddr);
+	printf("----%x\n", localAddr.s_addr);
 	// 绑定socket
-	struct sockaddr_in router;
+	sockaddr_in router;
 	router.sin_family = AF_INET;
 	router.sin_port = htons(RIP_PORT);
 	router.sin_addr.s_addr = inet_addr(RIP_GROUP);
-	if(setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &pcLocalAddr, sizeof(pcLocalAddr)) < 0) {
+	if(setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &localAddr, sizeof(localAddr)) < 0) {
 		perror("Setting local interface error");
 	} else printf("Setting the local interface...OK\n");
 
 	int result;
 	char buf[RIP_MAX_PACKET];
 	memcpy(buf, &requestpkt, sizeof(TRipPkt));
-	if ((result = sendto(fd, buf, sizeof(buf), 0, (sockaddr*)&router, sizeof(router))) == -1) {
+	printf("%d %d\n", RIP_MAX_PACKET, sizeof(router));
+	printf("%x %d\n", htonl(router.sin_addr.s_addr), htons(router.sin_port));
+	if ((result = sendto(fd, buf, sizeof(TRipPkt), 0, (sockaddr*)&router, sizeof(sockaddr_in))) == -1) {
 		printf("send error!\n");
 	} else {
 		printf("send succeed! packet len: %d\n", result);
 	}
 	close(fd);
-	// 发送
+	// for (int i = 0; i < RIP_MAX_PACKET; ++i) printf("%x", (uint8_t)buf[i]); puts("");
 }
 
 /*****************************************************
@@ -253,8 +267,9 @@ void ripdaemon_Start()
 	//封装请求报文，并组播
 	requestpkt_Encapsulate();
 	int i = 0;
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < INTERFACE_MAX; i++) {
 		if (pcLocalAddr[i] != NULL) {
+			printf("local ip interface %s\taddr: %s\n", pcLocalName[i], pcLocalAddr[i]);
 			rippacket_Multicast(pcLocalAddr[i]);
 		} else break;
 	}
@@ -269,7 +284,7 @@ void routentry_Insert()
 	int i = 0;
 	TRtEntry *p = g_pstRouteEntry;
 	while (1) {
-		if (i < 10 && pcLocalAddr[i] != NULL) {
+		if (i < INTERFACE_MAX && pcLocalAddr[i] != NULL) {
 			TRtEntry* newrip = new TRtEntry();
 			newrip->pcIfname = pcLocalName[i];
 			newrip->uiPrefixLen = 24;
@@ -292,8 +307,8 @@ void routentry_Insert()
 
 void localinterf_GetInfo()
 {
-	struct ifaddrs *pstIpAddrStruct = NULL;
-	struct ifaddrs *pstIpAddrStCur  = NULL;
+	ifaddrs *pstIpAddrStruct = NULL;
+	ifaddrs *pstIpAddrStCur  = NULL;
 	void *pAddrPtr=NULL;
 	const char *pcLo = "127.0.0.1";
 	
@@ -305,14 +320,14 @@ void localinterf_GetInfo()
 	{
 		if(pstIpAddrStruct->ifa_addr->sa_family==AF_INET)
 		{
-			pAddrPtr = &((struct sockaddr_in *)pstIpAddrStruct->ifa_addr)->sin_addr;
-			char cAddrBuf[INET_ADDRSTRLEN];
-			memset(&cAddrBuf,0,sizeof(INET_ADDRSTRLEN));
+			pAddrPtr = &((sockaddr_in*)pstIpAddrStruct->ifa_addr)->sin_addr;
+			printf("!!%x\n",htonl(((sockaddr_in*)pstIpAddrStruct->ifa_addr)->sin_addr.s_addr));
+			char cAddrBuf[INET_ADDRSTRLEN]={};
 			inet_ntop(AF_INET, pAddrPtr, cAddrBuf, INET_ADDRSTRLEN);
-			if(strcmp((const char*)&cAddrBuf,pcLo) != 0)
+			if(strcmp((const char*)&cAddrBuf, pcLo) != 0)
 			{
-				pcLocalAddr[i] = (char *)malloc(sizeof(INET_ADDRSTRLEN));
-				pcLocalName[i] = (char *)malloc(sizeof(IF_NAMESIZE));
+				pcLocalAddr[i] = (char*)malloc(sizeof(INET_ADDRSTRLEN));
+				pcLocalName[i] = (char*)malloc(sizeof(IF_NAMESIZE));
 				strcpy(pcLocalAddr[i],(const char*)&cAddrBuf);
 				strcpy(pcLocalName[i],(const char*)pstIpAddrStruct->ifa_name);
 				i++;
@@ -331,4 +346,3 @@ int main(int argc, char* argv[])
 	ripdaemon_Start();
 	return 0;
 }
-

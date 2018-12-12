@@ -3,41 +3,41 @@
 
 #include "defines.h"
 
-struct RipEntry {
+struct TRipEntry {
 	uint16_t usFamily;
 	uint16_t usTag;
 	in_addr stAddr;
 	in_addr stPrefixLen;
 	in_addr stNexthop;
 	uint32_t uiMetric;
-} TRipEntry;
+};
 
-struct  RipPacket {
+struct TRipPkt {
 	uint8_t ucCommand;
 	uint8_t ucVersion;
 	uint16_t usZero; 
 	TRipEntry RipEntries[RIP_MAX_ENTRY];
-} TRipPkt;
+};
 
 
-struct RouteEntry {
-	RouteEntry *pstNext;
+struct TRtEntry {
+	TRtEntry *pstNext;
 	in_addr stIpPrefix; 
 	uint32_t uiPrefixLen;
 	in_addr stNexthop;
 	uint32_t uiMetric;
 	char *pcIfname;
-} TRtEntry;
+};
 
-struct SockRoute {
+struct TSockRoute {
 	uint32_t uiPrefixLen;
 	in_addr stIpPrefix;
 	uint32_t uiIfindex;
 	in_addr stNexthop;
 	uint32_t uiCmd;
-} TSockRoute;
+};
 
-void route_SendForward(uint32_t uiCmd,TRtEntry *pstRtEntry);
+void route_SendForward(uint32_t uiCmd, TRtEntry *pstRtEntry);
 void requestpkt_Encapsulate();
 void rippacket_Receive();
 void rippacket_Send(in_addr stSourceIp);
