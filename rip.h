@@ -19,9 +19,13 @@ struct TRipPkt {
 	TRipEntry RipEntries[RIP_MAX_ENTRY];
 };
 
+struct Interface {
+	uint32_t addr;
+	char* name;
+};
 
 struct TRtEntry {
-	TRtEntry *pstNext;
+	// TRtEntry *pstNext;
 	in_addr stIpPrefix; 
 	uint32_t uiPrefixLen;
 	in_addr stNexthop;
@@ -37,16 +41,16 @@ struct TSockRoute {
 	uint32_t uiCmd;
 };
 
-void route_SendForward(uint32_t uiCmd, TRtEntry *pstRtEntry);
-void requestpkt_Encapsulate();
-void rippacket_Receive();
-void rippacket_Send(in_addr stSourceIp);
-void rippacket_Multicast(char *pcLocalAddr);
-void request_Handle(in_addr stSourceIp);
-void response_Handle(in_addr stSourceIp);
-void rippacket_Update();
-void routentry_Insert();
-void localinterf_GetInfo();
-void ripdaemon_Start();
+// void route_SendForward(uint32_t uiCmd, TRtEntry *pstRtEntry);
+// void requestpkt_Encapsulate();
+// void rippacket_Receive();
+// void rippacket_Send(in_addr stSourceIp);
+// void rippacket_Multicast(char *pcLocalAddr);
+// void request_Handle(in_addr stSourceIp);
+// void response_Handle(in_addr stSourceIp);
+// void rippacket_Update();
+// void routentry_Insert();
+// void localinterf_GetInfo();
+// void ripdaemon_Start();
 
 #endif
