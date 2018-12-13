@@ -25,32 +25,32 @@ struct Interface {
 };
 
 struct TRtEntry {
-	// TRtEntry *pstNext;
-	in_addr addr; // addr
-	in_addr mask; // mask
+	in_addr addr;
+	in_addr mask;
 	in_addr nexthop;
 	uint32_t metric;
 	char *ifname;
 };
 
-struct TSockRoute {
-	uint32_t uiPrefixLen;
-	in_addr stIpPrefix;
-	uint32_t uiIfindex;
-	in_addr stNexthop;
-	uint32_t uiCmd;
-};
+void rip_sendpkt(uint8_t*, uint32_t, uint32_t, uint16_t);
+void rip_timeout_handler(uint32_t);
+void rip_recv_handler(TRipPkt*, int32_t, uint32_t);
+void* rip_recvpkt(void*);
+void rip_timeout();
+void* count_30s(void*);
+void get_local_info(bool);
+void start_rip();
 
-// void route_SendForward(uint32_t uiCmd, TRtEntry *pstRtEntry);
-// void requestpkt_Encapsulate();
-// void rippacket_Receive();
-// void rippacket_Send(in_addr stSourceIp);
-// void rippacket_Multicast(char *pcLocalAddr);
-// void request_Handle(in_addr stSourceIp);
-// void response_Handle(in_addr stSourceIp);
-// void rippacket_Update();
-// void routentry_Insert();
-// void localinterf_GetInfo();
-// void ripdaemon_Start();
+extern std::vector<TRtEntry> rip_table;
+extern std::vector<Interface> iface;
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define fillEntry(src, fam, tag_, addr_, mask_, nxth, metr) \
+	src.family = fam;\
+	src.tag = tag_;\
+	src.addr.s_addr = addr_;\
+	src.mask = mask_;\
+	src.nexthop = nxth;\
+	src.metric = htonl(metr)
 
 #endif

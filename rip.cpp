@@ -3,7 +3,7 @@
 std::vector<TRtEntry> rip_table;
 std::vector<Interface> iface; // 存储本地接口
 
-void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port = RIP_PORT) {
+void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_PORT) {
 	int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
 		perror("Opening datagram socket error when send\n");
@@ -30,7 +30,7 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port = RIP
 	int loop = 0;
 	int err = setsockopt(fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop));
 	if (err < 0) {
-		perror("setsockopt():IP_MULTICAST_LOOP\n");
+		perror("setsockopt IP_MULTICAST_LOOP error\n");
 	}
 
 	sockaddr_in* localSock = new sockaddr_in();
@@ -65,17 +65,7 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port = RIP
 	close(fd);
 }
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define fillEntry(src, fam, tag_, addr_, mask_, nxth, metr) \
-	src.family = fam;\
-	src.tag = tag_;\
-	src.addr.s_addr = addr_;\
-	src.mask = mask_;\
-	src.nexthop = nxth;\
-	src.metric = htonl(metr)
-
-void rip_timeout_handler(uint32_t addr)
-{
+void rip_timeout_handler(uint32_t addr) {
 	TRipPkt sendpkt;
 	sendpkt.cmd = RIP_RESPONSE;
 	sendpkt.ver = RIP_VERSION;
@@ -122,7 +112,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 		for (int k = 0; k < len; ++k) {
 			bool appear = false;
 			for (int i = 0; i < rip_table.size(); ++i) {
-				if ((rip_table[i].addr.s_addr & rip_table[i].mask.s_addr ) == (rip_in->entries[k].addr.s_addr & rip_in->entries[k].mask.s_addr)) {
+				if ((rip_table[i].addr.s_addr & rip_table[i].mask.s_addr) == (rip_in->entries[k].addr.s_addr & rip_in->entries[k].mask.s_addr)) {
 					appear = true;
 					uint32_t in_dist = htonl(rip_in->entries[k].metric) + 1;
 					if (rip_table[i].nexthop.s_addr == from_addr)
@@ -147,8 +137,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 	}
 }
 
-void* rip_recvpkt(void* args)
-{
+void* rip_recvpkt(void* args) {
 	// 接收ip设置
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) perror("Opening datagram socket error when receiving\n");
@@ -219,8 +208,7 @@ void* count_30s(void* args) {
 }
 
 // 将本地接口表添加到rip路由表里
-void get_local_info(bool force=true)
-{
+void get_local_info(bool force=true) {
 	uint32_t localhost = inet_addr("127.0.0.1");
 	ifaddrs *if_addr = NULL;	
 	getifaddrs(&if_addr); // linux系统函数
@@ -255,8 +243,7 @@ void get_local_info(bool force=true)
 	freeifaddrs(head); // linux系统函数
 }
 
-void start_rip()
-{
+void start_rip() {
 	get_local_info();
 	// 创建更新线程，30s更新一次,向组播地址更新Update包
 	pthread_t p0, p1;
@@ -266,8 +253,7 @@ void start_rip()
 	rip_recvpkt(NULL);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	start_rip();
 	return 0;
 }
