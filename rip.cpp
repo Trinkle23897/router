@@ -33,16 +33,16 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port = RIP
 		perror("setsockopt():IP_MULTICAST_LOOP\n");
 	}
 
-	// sockaddr_in* localSock = new sockaddr_in();
-	// localSock->sin_family = AF_INET;
-	// localSock->sin_port = htons(port);
-	// localSock->sin_addr.s_addr = INADDR_ANY;
+	sockaddr_in* localSock = new sockaddr_in();
+	localSock->sin_family = AF_INET;
+	localSock->sin_port = htons(port);
+	localSock->sin_addr.s_addr = INADDR_ANY;
 
-	// if (bind(fd, (sockaddr*)localSock, sizeof(sockaddr_in))) {
-	// 	perror("Binding datagram socket error\n");
-	// 	close(fd);
-	// 	exit(1);
-	// } else printf("Binding datagram socket...OK.\n");
+	if (bind(fd, (sockaddr*)localSock, sizeof(sockaddr_in))) {
+		perror("Binding datagram socket error\n");
+		close(fd);
+		exit(1);
+	} else printf("Binding datagram socket...OK.\n");
 	
 	in_addr localAddr;
 	localAddr.s_addr = addr;
@@ -65,30 +65,86 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port = RIP
 	close(fd);
 }
 
-void rip_multicast(uint32_t addr)
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define fillEntry(src, fam, tag_, addr_, mask_, nxth, metr) \
+	src.family = fam;\
+	src.tag = tag_;\
+	src.addr.s_addr = addr_;\
+	src.mask = mask_;\
+	src.nexthop = nxth;\
+	src.metric = htonl(metr)
+
+void rip_timeout_handler(uint32_t addr)
 {
-	// 封装请求包  command = 1, version = 2, family = 0, metric = 16
 	TRipPkt sendpkt;
-	sendpkt.ucCommand = RIP_RESPONSE;
-	sendpkt.ucVersion = RIP_VERSION;
-	sendpkt.usZero = 0;
+	sendpkt.cmd = RIP_RESPONSE;
+	sendpkt.ver = RIP_VERSION;
+	sendpkt.zero = 0;
 	int index = 0;
 	for (int i = 0; i < rip_table.size(); ++i) {
 		if (i > 0 && index == RIP_MAX_ENTRY) {
 			index = 0;
 			rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipPkt), addr);
 		}
-		if (rip_table[i].stIpPrefix.s_addr == addr) continue;
-		sendpkt.RipEntries[index].stAddr = rip_table[i].stIpPrefix;
-		sendpkt.RipEntries[index].stNexthop = rip_table[i].stNexthop;
-		sendpkt.RipEntries[index].stPrefixLen.s_addr = (0xffffffff >> (32 - rip_table[i].uiPrefixLen));
-		sendpkt.RipEntries[index].uiMetric = htonl(RIP_INFINITY);
-		sendpkt.RipEntries[index].usFamily = 0;
-		printf("--- %d.%d.%d.%d %d.%d.%d.%d\n", TOIP(rip_table[i].stIpPrefix.s_addr), TOIP(sendpkt.RipEntries[index].stPrefixLen.s_addr));
+		if (rip_table[i].addr.s_addr == addr) continue;
+		fillEntry(sendpkt.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
+		printf("--- %d.%d.%d.%d %d.%d.%d.%d\n", TOIP(rip_table[i].addr.s_addr), TOIP(sendpkt.entries[index].addr.s_addr));
 		++index;
 	}
 	if (index > 0)
-		rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipEntry) * index + 4, addr);
+		rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, addr);
+}
+
+void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
+	uint16_t cmd = rip_in->cmd;
+	uint16_t ver = rip_in->ver;
+	if (cmd != RIP_REQUEST && cmd != RIP_RESPONSE) return;
+	if (ver != RIP_VERSION) return;
+	TRipPkt rip_out;
+	rip_out.ver = RIP_VERSION;
+	rip_out.zero = 0;
+	if (cmd == RIP_REQUEST) {
+		rip_out.cmd = RIP_RESPONSE;
+		int index = 0;
+		for (int i = 0; i < rip_table.size(); ++i) {
+			if (i > 0 && index == RIP_MAX_ENTRY) {
+				index = 0;
+				rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipPkt), from_addr);
+			}
+			if (rip_table[i].addr.s_addr == from_addr) continue;
+			fillEntry(rip_out.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
+			++index;
+		}
+		if (index > 0)
+			rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, from_addr);
+	} else { // response
+		len = (len - RIP_PACKET_HEAD) / sizeof(TRipEntry);
+		for (int k = 0; k < len; ++k) {
+			bool appear = false;
+			for (int i = 0; i < rip_table.size(); ++i) {
+				if ((rip_table[i].addr.s_addr & rip_table[i].mask.s_addr ) == (rip_in->entries[k].addr.s_addr & rip_in->entries[k].mask.s_addr)) {
+					appear = true;
+					uint32_t in_dist = htonl(rip_in->entries[k].metric) + 1;
+					if (rip_table[i].nexthop.s_addr == from_addr)
+						rip_table[i].metric = min(in_dist, RIP_INFINITY);
+					else if (rip_table[i].metric > in_dist) {
+						rip_table[i].metric = in_dist;
+						rip_table[i].nexthop.s_addr = from_addr;
+					}
+					break;
+				}
+			}
+			if (!appear) {
+				TRtEntry newroute;
+				newroute.addr = rip_in->entries[k].addr;
+				newroute.mask = rip_in->entries[k].mask;
+				newroute.nexthop = rip_in->entries[k].nexthop;
+				newroute.metric = htonl(rip_in->entries[k].metric);
+				newroute.ifname = NULL;
+				rip_table.push_back(newroute);
+			}
+		}
+	}
 }
 
 void* rip_recvpkt(void* args)
@@ -97,8 +153,7 @@ void* rip_recvpkt(void* args)
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) perror("Opening datagram socket error when receiving\n");
 	else printf("Opening datagram socket....OK.\n");
-	// 防止绑定地址冲突
-	// 设置地址重用
+	// 防止绑定地址冲突, 设置地址重用
 	int iReUseddr = 1;
 	if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (const char*)&iReUseddr, sizeof(iReUseddr)) < 0) {
 		perror("setsockopt reuseaddr error\n");
@@ -137,22 +192,22 @@ void* rip_recvpkt(void* args)
 		}
 	}
 
-	int cnt = 0;
 	uint8_t buf[sizeof(TRipPkt)];
 	TRipPkt* recvpkt = (TRipPkt*)buf;
 	while(1) {
 		// 接收rip报文   存储接收源ip地址
 		// 判断command类型，request 或 response
-		int ret = recvfrom(sd, buf, sizeof(TRipPkt), 0, (sockaddr*)localSock, &sendsize);
+		int32_t ret = recvfrom(sd, buf, sizeof(TRipPkt), 0, (sockaddr*)localSock, &sendsize);
 		if (ret > 0) {
-			printf("ret %d\tcnt: %d\tucCammand: %d\tucVersion: %d\n", ret, ++cnt, recvpkt->ucCommand, recvpkt->ucVersion);
+			printf("ret %d\tcmd: %d\tver: %d\tfrom %d.%d.%d.%d\n", ret, recvpkt->cmd, recvpkt->ver, TOIP(localSock->sin_addr.s_addr));
+			rip_recv_handler(recvpkt, ret, localSock->sin_addr.s_addr);
 		}
 	}
 }
 
 void rip_timeout() {
 	for (int i = 0; i < iface.size(); ++i)
-		rip_multicast(iface[i].addr);
+		rip_timeout_handler(iface[i].addr);
 	puts("30s!");
 }
 
@@ -164,7 +219,7 @@ void* count_30s(void* args) {
 }
 
 // 将本地接口表添加到rip路由表里
-void get_local_info()
+void get_local_info(bool force=true)
 {
 	uint32_t localhost = inet_addr("127.0.0.1");
 	ifaddrs *if_addr = NULL;	
@@ -176,7 +231,7 @@ void get_local_info()
 		if (if_addr->ifa_addr->sa_family == AF_INET)
 		{
 			uint32_t addr = ((sockaddr_in*)if_addr->ifa_addr)->sin_addr.s_addr;
-			printf("get %x\n", htonl(addr));
+			printf("get %d.%d.%d.%d\n", TOIP(addr));
 			if (addr != localhost)
 			{
 				// add interface
@@ -187,11 +242,11 @@ void get_local_info()
 				iface.push_back(newface);
 				// add to rip table
 				TRtEntry newroute;
-				newroute.stIpPrefix.s_addr = newface.addr;
-				newroute.uiPrefixLen = 24;
-				newroute.stNexthop.s_addr = 0;
-				newroute.uiMetric = 0;
-				newroute.pcIfname = newface.name;
+				newroute.mask.s_addr = 0xffffffff >> 8;
+				newroute.addr.s_addr = newface.addr;// & newroute.mask.s_addr;
+				newroute.nexthop.s_addr = 0;
+				newroute.metric = 1;
+				newroute.ifname = newface.name;
 				rip_table.push_back(newroute);
 			}	
 		}

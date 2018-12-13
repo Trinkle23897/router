@@ -1,22 +1,22 @@
-#ifndef __MYRIP_H__
-#define __MYRIP_H__
+#ifndef __RIP_H__
+#define __RIP_H__
 
 #include "defines.h"
 
 struct TRipEntry {
-	uint16_t usFamily;
-	uint16_t usTag;
-	in_addr stAddr;
-	in_addr stPrefixLen;
-	in_addr stNexthop;
-	uint32_t uiMetric;
+	uint16_t family;
+	uint16_t tag;
+	in_addr addr;
+	in_addr mask;
+	in_addr nexthop;
+	uint32_t metric; // little endian only
 };
 
 struct TRipPkt {
-	uint8_t ucCommand;
-	uint8_t ucVersion;
-	uint16_t usZero; 
-	TRipEntry RipEntries[RIP_MAX_ENTRY];
+	uint8_t cmd;
+	uint8_t ver;
+	uint16_t zero; 
+	TRipEntry entries[RIP_MAX_ENTRY];
 };
 
 struct Interface {
@@ -26,11 +26,11 @@ struct Interface {
 
 struct TRtEntry {
 	// TRtEntry *pstNext;
-	in_addr stIpPrefix; 
-	uint32_t uiPrefixLen;
-	in_addr stNexthop;
-	uint32_t uiMetric;
-	char *pcIfname;
+	in_addr addr; // addr
+	in_addr mask; // mask
+	in_addr nexthop;
+	uint32_t metric;
+	char *ifname;
 };
 
 struct TSockRoute {
