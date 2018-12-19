@@ -60,7 +60,7 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_P
 	if ((result = sendto(fd, data, len, 0, (sockaddr*)&router, sizeof(sockaddr_in))) == -1) {
 		printf("send error!\n");
 	} else {
-		printf("send succeed! packet len: %d\n", result);
+		printf("send to %3d.%3d.%3d.%3d succeed! packet len: %d\n", TOIP(addr), result);
 	}
 	close(fd);
 }
@@ -71,7 +71,6 @@ void rip_timeout_handler(uint32_t addr) {
 	sendpkt.ver = RIP_VERSION;
 	sendpkt.zero = 0;
 	int index = 0;
-	printf("TO ip %3d.%3d.%3d.%3d\t", TOIP(addr));
 	for (int i = 0; i < rip_table.size(); ++i) {
 		if (i > 0 && index == RIP_MAX_ENTRY) {
 			index = 0;
@@ -85,7 +84,16 @@ void rip_timeout_handler(uint32_t addr) {
 		rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, addr);
 }
 
+uint32_t lookfor24(uint32_t addr) {
+	uint32_t mask = 0xffffffff >> 8;
+	for (int i = 0; i < iface.size(); ++i)
+		if ((iface[i].addr & mask) == (addr & mask))
+			return iface[i].addr;
+	return 0;
+}
+
 void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
+	if (lookfor24(from_addr) == 0) return;
 	uint16_t cmd = rip_in->cmd;
 	uint16_t ver = rip_in->ver;
 	if (cmd != RIP_REQUEST && cmd != RIP_RESPONSE) return;
@@ -117,9 +125,9 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 					uint32_t in_dist = htonl(rip_in->entries[k].metric) + 1;
 					if (rip_table[i].nexthop.s_addr == from_addr)
 						rip_table[i].metric = min(in_dist, RIP_INFINITY);
-					else if (rip_table[i].metric > in_dist) {
+					else if (rip_table[i].metric >= in_dist) {
 						rip_table[i].metric = in_dist;
-						rip_table[i].nexthop.s_addr = from_addr;
+						rip_table[i].nexthop.s_addr = lookfor24(from_addr);
 					}
 					break;
 				}
@@ -128,8 +136,8 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				TRtEntry newroute;
 				newroute.addr = rip_in->entries[k].addr;
 				newroute.mask = rip_in->entries[k].mask;
-				newroute.nexthop = rip_in->entries[k].nexthop;
-				newroute.metric = htonl(rip_in->entries[k].metric) + 1;
+				newroute.nexthop.s_addr = lookfor24(from_addr);
+				newroute.metric = min(htonl(rip_in->entries[k].metric) + 1, RIP_INFINITY);
 				newroute.ifname = NULL;
 				rip_table.push_back(newroute);
 			}
@@ -189,7 +197,7 @@ void* rip_recvpkt(void* args) {
 		// 判断command类型，request 或 response
 		int32_t ret = recvfrom(sd, buf, sizeof(TRipPkt), 0, (sockaddr*)localSock, &sendsize);
 		if (ret > 0) {
-			printf("ret %d\tcmd: %d\tver: %d\tfrom %d.%d.%d.%d\n", ret, recvpkt->cmd, recvpkt->ver, TOIP(localSock->sin_addr.s_addr));
+			printf("receive len: %d\tcmd: %d\tver: %d\tfrom %d.%d.%d.%d\n", ret, recvpkt->cmd, recvpkt->ver, TOIP(localSock->sin_addr.s_addr));
 			rip_recv_handler(recvpkt, ret, localSock->sin_addr.s_addr);
 		}
 	}
