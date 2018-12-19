@@ -22,6 +22,7 @@ struct TRipPkt {
 struct Interface {
 	uint32_t addr;
 	char* name;
+	bool activate;
 };
 
 struct TRtEntry {
@@ -50,7 +51,7 @@ extern std::vector<Interface> iface;
 	src.tag = tag_;\
 	src.addr.s_addr = addr_;\
 	src.mask = mask_;\
-	src.nexthop = nxth;\
+	src.nexthop.s_addr = 0;\
 	src.metric = htonl(metr)
 
 #endif

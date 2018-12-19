@@ -50,6 +50,7 @@
 #define RIP_MAX_ENTRY	25
 #define ROUTE_MAX_ENTRY	256
 #define RIP_GROUP		"224.0.0.9"
+#define RIP_TIMEOUT		5.0
 
 #define RIP_CHECK_OK	1
 #define RIP_CHECK_FAIL	0

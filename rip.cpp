@@ -71,14 +71,15 @@ void rip_timeout_handler(uint32_t addr) {
 	sendpkt.ver = RIP_VERSION;
 	sendpkt.zero = 0;
 	int index = 0;
+	printf("TO ip %d.%d.%d.%d\n", TOIP(addr));
 	for (int i = 0; i < rip_table.size(); ++i) {
 		if (i > 0 && index == RIP_MAX_ENTRY) {
 			index = 0;
 			rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipPkt), addr);
 		}
-		if (rip_table[i].addr.s_addr == addr) continue;
+		if (rip_table[i].addr.s_addr == addr || rip_table[i].metric == RIP_INFINITY) continue;
 		fillEntry(sendpkt.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
-		printf("--- %d.%d.%d.%d %d.%d.%d.%d\n", TOIP(rip_table[i].addr.s_addr), TOIP(sendpkt.entries[index].addr.s_addr));
+		printf("--- %3d.%3d.%3d.%3d\t%3d.%3d.%3d.%3d\t%3d.%3d.%3d.%3d\t%2d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
 		++index;
 	}
 	if (index > 0)
@@ -101,7 +102,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				index = 0;
 				rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipPkt), from_addr);
 			}
-			if (rip_table[i].addr.s_addr == from_addr) continue;
+			if (rip_table[i].addr.s_addr == from_addr || rip_table[i].metric == RIP_INFINITY) continue;
 			fillEntry(rip_out.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
 			++index;
 		}
@@ -129,7 +130,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				newroute.addr = rip_in->entries[k].addr;
 				newroute.mask = rip_in->entries[k].mask;
 				newroute.nexthop = rip_in->entries[k].nexthop;
-				newroute.metric = htonl(rip_in->entries[k].metric);
+				newroute.metric = htonl(rip_in->entries[k].metric) + 1;
 				newroute.ifname = NULL;
 				rip_table.push_back(newroute);
 			}
@@ -168,7 +169,8 @@ void* rip_recvpkt(void* args) {
 	
 	ip_mreq_source mreq;
 	mreq.imr_multiaddr.s_addr = inet_addr(RIP_GROUP);
-	for (int i = 0; i < iface.size(); ++i) {
+	for (int i = 0; i < iface.size(); ++i) 
+	if (iface[i].activate) {
 		mreq.imr_interface.s_addr = iface[i].addr;
 		mreq.imr_sourceaddr.s_addr = iface[i].addr;
 		if (setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(ip_mreq)) < 0) {
@@ -196,55 +198,84 @@ void* rip_recvpkt(void* args) {
 
 void rip_timeout() {
 	for (int i = 0; i < iface.size(); ++i)
-		rip_timeout_handler(iface[i].addr);
-	puts("30s!");
+		if (iface[i].activate)
+			rip_timeout_handler(iface[i].addr);
+	puts("timeout!!!");
 }
 
 void* count_30s(void* args) {
 	while (1) {
 		rip_timeout();
-		sleep(30);
+		sleep(RIP_TIMEOUT * .5);
+		get_local_info(false);
+		sleep(RIP_TIMEOUT * .5);
 	}
 }
 
 // 将本地接口表添加到rip路由表里
-void get_local_info(bool force=true) {
+void get_local_info(bool init) {
 	uint32_t localhost = inet_addr("127.0.0.1");
 	ifaddrs *if_addr = NULL;	
 	getifaddrs(&if_addr); // linux系统函数
 	ifaddrs* head = if_addr;
-	
+	uint32_t groups = init ? AF_PACKET : AF_INET;
+	if (!init)
+		for (int i = 0; i < iface.size(); ++i)
+			iface[i].activate = false;
 	while (if_addr != NULL)
 	{
-		if (if_addr->ifa_addr->sa_family == AF_INET)
+		if (if_addr->ifa_addr->sa_family == groups)
 		{
 			uint32_t addr = ((sockaddr_in*)if_addr->ifa_addr)->sin_addr.s_addr;
 			printf("get %d.%d.%d.%d\n", TOIP(addr));
 			if (addr != localhost)
 			{
-				// add interface
-				Interface newface;
-				newface.addr = addr;
-				newface.name = new char[IF_NAMESIZE];
-				strncpy(newface.name, if_addr->ifa_name, strlen(if_addr->ifa_name));
-				iface.push_back(newface);
-				// add to rip table
-				TRtEntry newroute;
-				newroute.mask.s_addr = 0xffffffff >> 8;
-				newroute.addr.s_addr = newface.addr;// & newroute.mask.s_addr;
-				newroute.nexthop.s_addr = 0;
-				newroute.metric = 1;
-				newroute.ifname = newface.name;
-				rip_table.push_back(newroute);
+				if (init) {
+					// add interface
+					Interface newface;
+					newface.addr = addr;
+					newface.name = new char[IF_NAMESIZE];
+					newface.activate = false;
+					strncpy(newface.name, if_addr->ifa_name, strlen(if_addr->ifa_name));
+					iface.push_back(newface);
+					// add to rip table
+					TRtEntry newroute;
+					newroute.mask.s_addr = 0xffffffff >> 8;
+					newroute.addr.s_addr = newface.addr;// & newroute.mask.s_addr;
+					newroute.nexthop.s_addr = 0;
+					newroute.metric = 1;
+					newroute.ifname = newface.name;
+					rip_table.push_back(newroute);
+				} else { // update interface
+					bool flag = false;
+					for (int i = 0; i < iface.size() && !flag; ++i)
+						if (strcmp(iface[i].name, if_addr->ifa_name) == 0) {
+							flag = true;
+							iface[i].addr = addr;
+							iface[i].activate = true;
+						}
+				}
 			}	
 		}
 		if_addr = if_addr->ifa_next;
+	}
+	if (!init) {
+		for (int i = 0; i < iface.size(); ++i)
+			if (iface[i].activate) {
+				rip_table[i].metric = 1;
+				rip_table[i].addr.s_addr = iface[i].addr;
+			}
+			else {
+				rip_table[i].metric = 16;
+				rip_table[i].addr.s_addr = 0;
+			}
 	}
 	freeifaddrs(head); // linux系统函数
 }
 
 void start_rip() {
-	get_local_info();
+	get_local_info(true);
+	get_local_info(false);
 	// 创建更新线程，30s更新一次,向组播地址更新Update包
 	pthread_t p0, p1;
 	//int32_t pd0 = pthread_create(&p0, NULL, rip_recvpkt, NULL);
