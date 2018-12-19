@@ -37,7 +37,7 @@
 /* IP地址长度 */
 #define IP_ADDR_LEN 4
 
-#define TOIP(x) (x)%256, ((x)>>8)%256, ((x)>>16)%256, ((x>>24))%256
+#define TOIP(x) (x)%256, ((x)>>8)%256, ((x)>>16)%256, ((x)>>24)%256
 #define TOMAC(x) (x)[0], (x)[1], (x)[2], (x)[3], (x)[4], (x)[5]
 
 #define RIP_VERSION		2
@@ -56,5 +56,7 @@
 #define RIP_CHECK_FAIL	0
 #define AddRoute		24
 #define DelRoute		25
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 #endif

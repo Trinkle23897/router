@@ -40,7 +40,7 @@ void* rip_recvpkt(void*);
 void rip_timeout();
 void* count_30s(void*);
 void get_local_info(bool);
-uint32_t lookfor24(uint32_t);
+Interface* lookfor24(uint32_t);
 void start_rip();
 
 extern std::vector<TRtEntry> rip_table;

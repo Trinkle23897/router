@@ -1,9 +1,8 @@
-// install g++: https://my.oschina.net/liuyes/blog/1609644
 #include "checksum.h"
 #include "lookuproute.h"
 #include "arpfind.h"
-#include "sendetherip.h"
 #include "recvroute.h"
+#include "rip.h"
 
 //接收路由信息的线程
 void *thr_fn(void *arg)
@@ -21,20 +20,19 @@ void *thr_fn(void *arg)
 		return NULL;
 	}
 	listen(sock_fd, 5);
-	// add-24 del-25
 	while (1)
 	{
 		int32_t conn_fd = accept(sock_fd, (sockaddr*)NULL, NULL);
 		int32_t ret = recv(conn_fd, &selfrt, sizeof(selfroute), 0);
 		if (ret > 0)
 		{
-			if (selfrt.cmdnum == 24)
+			if (selfrt.cmdnum == AddRoute)
 			{
 				if_indextoname(selfrt.ifindex, ifname);
-				insert_route(selfrt.prefix.s_addr, selfrt.prefixlen, ifname, selfrt.ifindex, selfrt.nexthop.s_addr);
+				insert_route(selfrt.prefix.s_addr, selfrt.prefixlen, ifname, selfrt.nexthop.s_addr);
 			}
-			else if (selfrt.cmdnum == 25)
-				delete_route(selfrt.nexthop, selfrt.prefixlen);
+			else if (selfrt.cmdnum == DelRoute)
+				delete_route(selfrt.nexthop.s_addr, selfrt.prefixlen);
 		}
 	}
 }
@@ -72,7 +70,7 @@ int main(int argc, char** argv)
 
 	// 创建线程去接收路由信息
 	int32_t pd = pthread_create(&tid, NULL, thr_fn, NULL);
-
+	start_rip();
 	while (1)
 	{
 		// 接收ip数据包模块
@@ -93,14 +91,14 @@ int main(int argc, char** argv)
 				ip *iphead = (ip*)(skbuf + ETHER_HEADER_LEN);
 				// 调用校验函数check_sum，成功返回1
 				if (check_sum(iphead) == 1)
-					fprintf(stderr, "checksum ok\n");
+					;//fprintf(stderr, "checksum ok\n");
 				else {
 					fprintf(stderr, "checksum error\n");
 					continue;
 				}
 				// 查找路由表，获取下一跳ip地址和出接口模块
 				// 调用查找路由函数lookup_route，获取下一跳ip地址和出接口
-				if (lookup_route(iphead->ip_dst, nexthopinfo) == 0)
+				if (lookup_route(iphead->ip_dst.s_addr, nexthopinfo) == 0)
 				{
 					fprintf(stderr, "find next hop %x\n", (nexthopinfo->nexthopaddr.s_addr));
 				}
@@ -112,7 +110,7 @@ int main(int argc, char** argv)
 				//调用arpGet获取下一跳的mac地址
 				if (arpGet(srcmac, nexthopinfo) == 0)
 				{
-					fprintf(stderr, "get next hop arp\n");
+					;//fprintf(stderr, "get next hop arp\n");
 				}
 				else {
 					fprintf(stderr, "arp find err\n");

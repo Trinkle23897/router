@@ -3,6 +3,12 @@
 std::vector<TRtEntry> rip_table;
 std::vector<Interface> iface; // 存储本地接口
 
+#ifndef RIP_MAIN
+extern int32_t insert_route(uint32_t, uint32_t, char*, uint32_t);
+extern int32_t modify_route(uint32_t, uint32_t, char*, uint32_t);
+extern int32_t delete_route(uint32_t, uint32_t);
+#endif
+
 void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_PORT) {
 	int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
@@ -84,16 +90,16 @@ void rip_timeout_handler(uint32_t addr) {
 		rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, addr);
 }
 
-uint32_t lookfor24(uint32_t addr) {
+Interface* lookfor24(uint32_t addr) {
 	uint32_t mask = 0xffffffff >> 8;
 	for (int i = 0; i < iface.size(); ++i)
 		if ((iface[i].addr & mask) == (addr & mask))
-			return iface[i].addr;
-	return 0;
+			return &(iface[i]);
+	return NULL;
 }
 
 void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
-	if (lookfor24(from_addr) == 0) return;
+	if (lookfor24(from_addr) == NULL) return;
 	uint16_t cmd = rip_in->cmd;
 	uint16_t ver = rip_in->ver;
 	if (cmd != RIP_REQUEST && cmd != RIP_RESPONSE) return;
@@ -114,7 +120,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 			++index;
 		}
 		if (index > 0)
-			rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, from_addr);
+			rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipEntry) * index + RIP_PACKET_HEAD, lookfor24(from_addr)->addr);
 	} else { // response
 		len = (len - RIP_PACKET_HEAD) / sizeof(TRipEntry);
 		for (int k = 0; k < len; ++k) {
@@ -123,11 +129,21 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				if ((rip_table[i].addr.s_addr & rip_table[i].mask.s_addr) == (rip_in->entries[k].addr.s_addr & rip_in->entries[k].mask.s_addr)) {
 					appear = true;
 					uint32_t in_dist = htonl(rip_in->entries[k].metric) + 1;
-					if (rip_table[i].nexthop.s_addr == from_addr)
+					if (rip_table[i].nexthop.s_addr == from_addr) {
 						rip_table[i].metric = min(in_dist, RIP_INFINITY);
+#ifndef RIP_MAIN
+						if (rip_table[i].metric >= RIP_INFINITY)
+							delete_route(rip_table[i].nexthop.s_addr, __builtin_ctz(~rip_table[i].mask.s_addr));
+#endif
+					}
 					else if (rip_table[i].metric >= in_dist) {
 						rip_table[i].metric = in_dist;
-						rip_table[i].nexthop.s_addr = lookfor24(from_addr);
+						if (rip_table[i].nexthop.s_addr != from_addr) {
+							rip_table[i].nexthop.s_addr = from_addr;
+#ifndef RIP_MAIN
+							modify_route(rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, __builtin_ctz(~rip_table[i].mask.s_addr), lookfor24(from_addr)->name, rip_table[i].nexthop.s_addr);
+#endif
+						}
 					}
 					break;
 				}
@@ -136,10 +152,13 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				TRtEntry newroute;
 				newroute.addr = rip_in->entries[k].addr;
 				newroute.mask = rip_in->entries[k].mask;
-				newroute.nexthop.s_addr = lookfor24(from_addr);
+				newroute.nexthop.s_addr = from_addr;
 				newroute.metric = min(htonl(rip_in->entries[k].metric) + 1, RIP_INFINITY);
 				newroute.ifname = NULL;
 				rip_table.push_back(newroute);
+#ifndef RIP_MAIN
+				insert_route(newroute.addr.s_addr & newroute.mask.s_addr, __builtin_ctz(~newroute.mask.s_addr), lookfor24(from_addr)->name, newroute.nexthop.s_addr);
+#endif
 			}
 		}
 	}
@@ -267,9 +286,9 @@ void get_local_info(bool init) {
 		if_addr = if_addr->ifa_next;
 	}
 	if (!init) {
-		printf("------------------------------------------------------------------\n");
-		printf("   |    IPv4 Addr    |    Mask Addr    |   Nexthop Addr  | Metric \n");
-		printf("------------------------------------------------------------------\n");
+		printf("-----------------------------------------------------\n");
+		printf("   |        Network       |   Nexthop Addr  | Metric \n");
+		printf("-----------------------------------------------------\n");
 		for (int i = 0; i < iface.size(); ++i) {
 			if (iface[i].activate) {
 				rip_table[i].metric = 1;
@@ -279,11 +298,11 @@ void get_local_info(bool init) {
 				rip_table[i].metric = 16;
 				// rip_table[i].addr.s_addr = 0;
 			}
-			printf(" C | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+			printf(" C | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
 		}
 		for (int i = iface.size(); i < rip_table.size(); ++i)
-			printf(" R | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
-		printf("------------------------------------------------------------------\n");
+			printf(" R | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+		printf("-----------------------------------------------------\n");
 	}
 	freeifaddrs(head); // linux系统函数
 }
@@ -298,8 +317,9 @@ void start_rip() {
 	int32_t pd1 = pthread_create(&p1, NULL, count_30s, NULL);
 }
 
+#ifdef RIP_MAIN
 int main(int argc, char* argv[]) {
 	start_rip();
-	while(1);
-	return 0;
+	while(1) sleep(10000);
 }
+#endif
