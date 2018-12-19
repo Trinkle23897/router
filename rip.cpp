@@ -9,7 +9,7 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_P
 		perror("Opening datagram socket error when send\n");
 		exit(1);
 	} else 
-		printf("Opening datagram socket....OK.\n");
+		;//printf("Opening datagram socket....OK.\n");
 
 	// 防止绑定地址冲突，仅供参考
 	// 设置地址重用
@@ -42,15 +42,15 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_P
 		perror("Binding datagram socket error\n");
 		close(fd);
 		exit(1);
-	} else printf("Binding datagram socket...OK.\n");
+	} else ;//printf("Binding datagram socket...OK.\n");
 	
 	in_addr localAddr;
 	localAddr.s_addr = addr;
-	printf("interface addr %d.%d.%d.%d\n", TOIP(localAddr.s_addr));
+	// printf("interface addr %d.%d.%d.%d\n", TOIP(localAddr.s_addr));
 	// 绑定socket
 	if(setsockopt(fd, IPPROTO_IP, IP_MULTICAST_IF, &localAddr, sizeof(localAddr)) < 0) {
 		perror("Setting local interface error");
-	} else printf("Setting the local interface...OK\n");
+	} else ;//printf("Setting the local interface...OK\n");
 
 	sockaddr_in router;
 	router.sin_family = AF_INET;
@@ -71,15 +71,14 @@ void rip_timeout_handler(uint32_t addr) {
 	sendpkt.ver = RIP_VERSION;
 	sendpkt.zero = 0;
 	int index = 0;
-	printf("TO ip %d.%d.%d.%d\n", TOIP(addr));
+	printf("TO ip %3d.%3d.%3d.%3d\t", TOIP(addr));
 	for (int i = 0; i < rip_table.size(); ++i) {
 		if (i > 0 && index == RIP_MAX_ENTRY) {
 			index = 0;
 			rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipPkt), addr);
 		}
-		if (rip_table[i].addr.s_addr == addr || rip_table[i].metric == RIP_INFINITY) continue;
+		if (rip_table[i].addr.s_addr == addr) continue;
 		fillEntry(sendpkt.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
-		printf("--- %3d.%3d.%3d.%3d\t%3d.%3d.%3d.%3d\t%3d.%3d.%3d.%3d\t%2d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
 		++index;
 	}
 	if (index > 0)
@@ -102,7 +101,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				index = 0;
 				rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipPkt), from_addr);
 			}
-			if (rip_table[i].addr.s_addr == from_addr || rip_table[i].metric == RIP_INFINITY) continue;
+			if (rip_table[i].addr.s_addr == from_addr) continue;
 			fillEntry(rip_out.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
 			++index;
 		}
@@ -142,7 +141,7 @@ void* rip_recvpkt(void* args) {
 	// 接收ip设置
 	int sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sd < 0) perror("Opening datagram socket error when receiving\n");
-	else printf("Opening datagram socket....OK.\n");
+	else ;//printf("Opening datagram socket....OK.\n");
 	// 防止绑定地址冲突, 设置地址重用
 	int iReUseddr = 1;
 	if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, (const char*)&iReUseddr, sizeof(iReUseddr)) < 0) {
@@ -165,7 +164,7 @@ void* rip_recvpkt(void* args) {
 		perror("Binding datagram socket error\n");
 		close(sd);
 		return NULL;
-	} else printf("Binding datagram socket...OK.\n");
+	} else ;//printf("Binding datagram socket...OK.\n");
 	
 	ip_mreq_source mreq;
 	mreq.imr_multiaddr.s_addr = inet_addr(RIP_GROUP);
@@ -200,7 +199,7 @@ void rip_timeout() {
 	for (int i = 0; i < iface.size(); ++i)
 		if (iface[i].activate)
 			rip_timeout_handler(iface[i].addr);
-	puts("timeout!!!");
+	// puts("timeout!!!");
 }
 
 void* count_30s(void* args) {
@@ -214,7 +213,7 @@ void* count_30s(void* args) {
 
 // 将本地接口表添加到rip路由表里
 void get_local_info(bool init) {
-	uint32_t localhost = inet_addr("127.0.0.1");
+	uint32_t localhost = inet_addr(init ? "1.0.0.0" : "127.0.0.1");
 	ifaddrs *if_addr = NULL;	
 	getifaddrs(&if_addr); // linux系统函数
 	ifaddrs* head = if_addr;
@@ -227,7 +226,6 @@ void get_local_info(bool init) {
 		if (if_addr->ifa_addr->sa_family == groups)
 		{
 			uint32_t addr = ((sockaddr_in*)if_addr->ifa_addr)->sin_addr.s_addr;
-			printf("get %d.%d.%d.%d\n", TOIP(addr));
 			if (addr != localhost)
 			{
 				if (init) {
@@ -236,7 +234,7 @@ void get_local_info(bool init) {
 					newface.addr = addr;
 					newface.name = new char[IF_NAMESIZE];
 					newface.activate = false;
-					strncpy(newface.name, if_addr->ifa_name, strlen(if_addr->ifa_name));
+					strncpy(newface.name, if_addr->ifa_name, strlen(if_addr->ifa_name) + 1);
 					iface.push_back(newface);
 					// add to rip table
 					TRtEntry newroute;
@@ -247,6 +245,7 @@ void get_local_info(bool init) {
 					newroute.ifname = newface.name;
 					rip_table.push_back(newroute);
 				} else { // update interface
+					printf("get %3d.%3d.%3d.%3d\tiface %s\n", TOIP(addr), if_addr->ifa_name);
 					bool flag = false;
 					for (int i = 0; i < iface.size() && !flag; ++i)
 						if (strcmp(iface[i].name, if_addr->ifa_name) == 0) {
@@ -260,15 +259,23 @@ void get_local_info(bool init) {
 		if_addr = if_addr->ifa_next;
 	}
 	if (!init) {
-		for (int i = 0; i < iface.size(); ++i)
+		printf("------------------------------------------------------------------\n");
+		printf("   |    IPv4 Addr    |    Mask Addr    |   Nexthop Addr  | Metric \n");
+		printf("------------------------------------------------------------------\n");
+		for (int i = 0; i < iface.size(); ++i) {
 			if (iface[i].activate) {
 				rip_table[i].metric = 1;
 				rip_table[i].addr.s_addr = iface[i].addr;
 			}
 			else {
 				rip_table[i].metric = 16;
-				rip_table[i].addr.s_addr = 0;
+				// rip_table[i].addr.s_addr = 0;
 			}
+			printf(" C | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+		}
+		for (int i = iface.size(); i < rip_table.size(); ++i)
+			printf(" R | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), TOIP(rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+		printf("------------------------------------------------------------------\n");
 	}
 	freeifaddrs(head); // linux系统函数
 }
@@ -276,15 +283,15 @@ void get_local_info(bool init) {
 void start_rip() {
 	get_local_info(true);
 	get_local_info(false);
+	sleep(0.1);
 	// 创建更新线程，30s更新一次,向组播地址更新Update包
 	pthread_t p0, p1;
-	//int32_t pd0 = pthread_create(&p0, NULL, rip_recvpkt, NULL);
-	//count_30s(NULL);
+	int32_t pd0 = pthread_create(&p0, NULL, rip_recvpkt, NULL);
 	int32_t pd1 = pthread_create(&p1, NULL, count_30s, NULL);
-	rip_recvpkt(NULL);
 }
 
 int main(int argc, char* argv[]) {
 	start_rip();
+	while(1);
 	return 0;
 }
