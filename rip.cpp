@@ -82,7 +82,8 @@ void rip_timeout_handler(uint32_t addr) {
 			index = 0;
 			rip_sendpkt((uint8_t*)(&sendpkt), sizeof(TRipPkt), addr);
 		}
-		if (rip_table[i].addr.s_addr == addr) continue;
+		if (rip_table[i].addr.s_addr == addr || (rip_table[i].nexthop.s_addr & rip_table[i].mask.s_addr) == (rip_table[i].mask.s_addr & addr)) continue;
+		if (i < iface.size() && iface[i].activate == false) continue;
 		fillEntry(sendpkt.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
 		++index;
 	}
@@ -115,7 +116,8 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 				index = 0;
 				rip_sendpkt((uint8_t*)(&rip_out), sizeof(TRipPkt), from_addr);
 			}
-			if (rip_table[i].addr.s_addr == from_addr) continue;
+			if (rip_table[i].addr.s_addr == from_addr || (rip_table[i].nexthop.s_addr & rip_table[i].mask.s_addr) == (rip_table[i].mask.s_addr & from_addr)) continue;
+			if (i < iface.size() && iface[i].activate == false) continue;
 			fillEntry(rip_out.entries[index], htons(2), 0, rip_table[i].addr.s_addr & rip_table[i].mask.s_addr, rip_table[i].mask, rip_table[i].nexthop, rip_table[i].metric);
 			++index;
 		}
@@ -126,6 +128,7 @@ void rip_recv_handler(TRipPkt* rip_in, int32_t len, uint32_t from_addr) {
 		for (int k = 0; k < len; ++k) {
 			bool appear = false;
 			for (int i = 0; i < rip_table.size(); ++i) {
+				if (i < iface.size() && iface[i].activate == false) continue;
 				if ((rip_table[i].addr.s_addr & rip_table[i].mask.s_addr) == (rip_in->entries[k].addr.s_addr & rip_in->entries[k].mask.s_addr)) {
 					appear = true;
 					uint32_t in_dist = htonl(rip_in->entries[k].metric) + 1;

@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 				// 调用查找路由函数lookup_route，获取下一跳ip地址和出接口
 				if (lookup_route(iphead->ip_dst.s_addr, nexthopinfo) == 0)
 				{
-					fprintf(stderr, "find next hop %x\n", (nexthopinfo->nexthopaddr.s_addr));
+					fprintf(stderr, "source %d.%d.%d.%d find next hop %d.%d.%d.%d\n", TOIP(iphead->ip_dst.s_addr), TOIP(nexthopinfo->nexthopaddr.s_addr));
 				}
 				else {
 					fprintf(stderr, "no next hop\n");
@@ -108,6 +108,8 @@ int main(int argc, char** argv)
 				}
 				// arp find
 				//调用arpGet获取下一跳的mac地址
+				if (nexthopinfo->nexthopaddr.s_addr == 0)
+					nexthopinfo->nexthopaddr.s_addr = ip_recvpkt->ip_dst.s_addr;
 				if (arpGet(srcmac, nexthopinfo) == 0)
 				{
 					;//fprintf(stderr, "get next hop arp\n");

@@ -45,6 +45,9 @@ int32_t modify_route(uint32_t ip4prefix, uint32_t prefixlen, char* ifname, uint3
 int32_t lookup_route(uint32_t dstaddr, nexthop *nexthopinfo)
 {
 	fprintf(stderr, "lookup: %d.%d.%d.%d in #%lu\n", TOIP(dstaddr), route_table.size());
+	for (int i = 0; i < route_table.size(); ++i) {
+		printf("--- %3d.%3d.%3d.%3d/%2d %3d.%3d.%3d.%3d\n", TOIP(ntohl(route_table[i].ip4prefix.s_addr)), route_table[i].prefixlen, TOIP(route_table[i].nexthop->nexthopaddr.s_addr));
+	}
 	uint32_t dstip = ntohl(dstaddr);
 	uint32_t mask = 0;
 	uint32_t full_mask = 0xFFFFFFFF;
@@ -62,7 +65,7 @@ int32_t lookup_route(uint32_t dstaddr, nexthop *nexthopinfo)
 	if (mask == 0)
 		return -1;
 	else {
-		fprintf(stderr, "final: %x\n", nexthopinfo->nexthopaddr.s_addr);
+		fprintf(stderr, "final: %d.%d.%d.%d\n", TOIP(nexthopinfo->nexthopaddr.s_addr));
 		return 0;
 	}
 }
