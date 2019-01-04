@@ -18,7 +18,11 @@ struct route
 	struct nexthop *nexthop;
 };
 
-extern std::vector<route> route_table;
+struct Edge {
+	uint32_t ip, nexthop, ifindex, nxt;
+	char* ifname;
+};
+
 int32_t insert_route(uint32_t, uint32_t, char*, uint32_t);
 int32_t modify_route(uint32_t, uint32_t, char*, uint32_t);
 int32_t lookup_route(uint32_t, nexthop*);

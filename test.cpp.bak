@@ -1,0 +1,22 @@
+#include "lookuproute.h"
+#include <cstdlib>
+// extern std::vector<route> route_table;
+
+int main(int argc, char const *argv[])
+{
+	int num = atoi(argv[1]);
+	nexthop nxt;
+	srand(0);
+	// gen data
+	for (int i = 0; i < 1000; ++i) {
+		insert_route(rand(), rand()%31+1, "", rand());
+	}
+	// ans
+	for (int i = 0; i < num; ++i) {
+		uint32_t tmp = rand();
+		int res = lookup_route(tmp, &nxt);
+		// if (res == -1) printf("-1\n");
+		// else printf("%d.%d.%d.%d: %d.%d.%d.%d\n", TOIP(tmp), TOIP(nxt.nexthopaddr.s_addr));
+	}
+	return 0;
+}

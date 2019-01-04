@@ -39,6 +39,7 @@ void *thr_fn(void *arg)
 
 void analyseIP(ip*iphd)
 {
+	return;
 	static int32_t cnt = 0;
 	uint32_t src = iphd->ip_src.s_addr;
 	uint32_t dst = iphd->ip_dst.s_addr;
@@ -62,15 +63,10 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// 路由表初始化
-	// route_table = new route;
-	// if (route_table == NULL)
-	// 	return printf("malloc route error\n"), -1;
-	// memset(route_table, 0, sizeof(route));
-
 	// 创建线程去接收路由信息
 	int32_t pd = pthread_create(&tid, NULL, thr_fn, NULL);
 	start_rip();
+	puts("OK");
 	while (1)
 	{
 		// 接收ip数据包模块
@@ -149,7 +145,7 @@ int main(int argc, char** argv)
 					(const sockaddr*)&sadr_ll, sizeof(sockaddr_ll)) == -1) {
 					fprintf(stderr, "send error\n");
 				} else
-					fprintf(stderr, "send succeed\n");
+					;//fprintf(stderr, "send succeed\n");
 				close(sendfd);
 			}
 		}

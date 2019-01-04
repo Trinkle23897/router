@@ -66,7 +66,7 @@ void rip_sendpkt(uint8_t *data, uint32_t len, uint32_t addr, uint16_t port=RIP_P
 	if ((result = sendto(fd, data, len, 0, (sockaddr*)&router, sizeof(sockaddr_in))) == -1) {
 		printf("send error!\n");
 	} else {
-		printf("send to %3d.%3d.%3d.%3d succeed! packet len: %d\n", TOIP(addr), result);
+		// printf("send to %3d.%3d.%3d.%3d succeed! packet len: %d\n", TOIP(addr), result);
 	}
 	close(fd);
 }
@@ -219,7 +219,7 @@ void* rip_recvpkt(void* args) {
 		// 判断command类型，request 或 response
 		int32_t ret = recvfrom(sd, buf, sizeof(TRipPkt), 0, (sockaddr*)localSock, &sendsize);
 		if (ret > 0) {
-			printf("receive len: %d\tcmd: %d\tver: %d\tfrom %d.%d.%d.%d\n", ret, recvpkt->cmd, recvpkt->ver, TOIP(localSock->sin_addr.s_addr));
+			// printf("receive len: %d\tcmd: %d\tver: %d\tfrom %d.%d.%d.%d\n", ret, recvpkt->cmd, recvpkt->ver, TOIP(localSock->sin_addr.s_addr));
 			rip_recv_handler(recvpkt, ret, localSock->sin_addr.s_addr);
 		}
 	}
@@ -275,7 +275,7 @@ void get_local_info(bool init) {
 					newroute.ifname = newface.name;
 					rip_table.push_back(newroute);
 				} else { // update interface
-					printf("get %3d.%3d.%3d.%3d\tiface %s\n", TOIP(addr), if_addr->ifa_name);
+					// printf("get %3d.%3d.%3d.%3d\tiface %s\n", TOIP(addr), if_addr->ifa_name);
 					bool flag = false;
 					for (int i = 0; i < iface.size() && !flag; ++i)
 						if (strcmp(iface[i].name, if_addr->ifa_name) == 0) {
@@ -289,9 +289,9 @@ void get_local_info(bool init) {
 		if_addr = if_addr->ifa_next;
 	}
 	if (!init) {
-		printf("-----------------------------------------------------\n");
-		printf("   |        Network       |   Nexthop Addr  | Metric \n");
-		printf("-----------------------------------------------------\n");
+		// printf("-----------------------------------------------------\n");
+		// printf("   |        Network       |   Nexthop Addr  | Metric \n");
+		// printf("-----------------------------------------------------\n");
 		for (int i = 0; i < iface.size(); ++i) {
 			if (iface[i].activate) {
 				rip_table[i].metric = 1;
@@ -301,11 +301,11 @@ void get_local_info(bool init) {
 				rip_table[i].metric = 16;
 				// rip_table[i].addr.s_addr = 0;
 			}
-			printf(" C | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+			// printf(" C | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
 		}
-		for (int i = iface.size(); i < rip_table.size(); ++i)
-			printf(" R | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
-		printf("-----------------------------------------------------\n");
+		// for (int i = iface.size(); i < rip_table.size(); ++i)
+			// printf(" R | %3d.%3d.%3d.%3d / %2d | %3d.%3d.%3d.%3d | %4d\n", TOIP(rip_table[i].addr.s_addr), __builtin_ctz(~rip_table[i].mask.s_addr), TOIP(rip_table[i].nexthop.s_addr), rip_table[i].metric);
+		// printf("-----------------------------------------------------\n");
 	}
 	freeifaddrs(head); // linux系统函数
 }
