@@ -1,12 +1,13 @@
 #include "lookuproute.h"
 #include <cstdlib>
+#include <ctime>
 // extern std::vector<route> route_table;
 
 int main(int argc, char const *argv[])
 {
 	int num = atoi(argv[1]);
 	nexthop nxt;
-	srand(0);
+	srand(time(0)*0);
 	// gen data
 	for (int i = 0; i < 1000; ++i) {
 		insert_route(rand(), rand()%31+1, "", rand());

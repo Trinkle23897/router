@@ -1,7 +1,7 @@
 #include "lookuproute.h"
-#define M 131063
+#define M 3277
 
-Edge e[1<<20];
+Edge e[1<<13];
 uint32_t last[32][M];
 uint32_t et = 0, small = 32, large = 0;
 /*
@@ -15,7 +15,7 @@ int32_t insert_route(uint32_t ip4prefix, uint32_t prefixlen, char *ifname, uint3
 	// printf("insert %d.%d.%d.%d/%d %s %d.%d.%d.%d\n", TOIP(ip4prefix), prefixlen, ifname, TOIP(nexthopaddr));
 	// insert 192.168.6.0/24 eth14 192.168.3.2
 
-	uint32_t ip = ntohl(ip4prefix) & (0xFFFFFFFF << (32 - prefixlen));
+	uint32_t ip = ntohl(ip4prefix) & ((0xFFFFFFFF << (32 - prefixlen)));
 	uint32_t key = ip % M;
 	for (uint32_t i = last[prefixlen][key]; i; i = e[i].nxt)
 		if (e[i].ip == ip) {
@@ -47,18 +47,24 @@ int32_t modify_route(uint32_t ip4prefix, uint32_t prefixlen, char* ifname, uint3
  * 参数1是目的IP地址，参数2下一跳和出接口信息
  * 注意：查找算法与所用路由表存储结构相关
  */
-int32_t lookup_route(uint32_t dstaddr, nexthop *nexthopinfo)
+int32_t lookup_route(uint32_t dstip, nexthop *nexthopinfo)
 { // assume nexthopinfo != NULL
-	uint32_t dstip = ntohl(dstaddr), target;
-	for (uint32_t m = large; m >= small; --m) {
-		target = dstip & (0xFFFFFFFF << (32 - m));
-		for (uint32_t i = last[m][target % M]; i; i = e[i].nxt)
-			if (e[i].ip == target) {
+	uint32_t m = large, mask = (0xFFFFFFFF << (32 - m));
+	// modm = dstip % M;
+	for (dstip = ntohl(dstip) & mask; m >= small; --m, dstip &= (mask <<= 1)) {
+		for (uint32_t i = last[m][dstip % M]; i; i = e[i].nxt)
+			if (e[i].ip == dstip) {
 				nexthopinfo->ifname = e[i].ifname;
 				nexthopinfo->ifindex = e[i].ifindex;
 				nexthopinfo->nexthopaddr.s_addr = e[i].nexthop;
 				return 0;
 			}
+		// --m;
+		// mask <<= 1;
+		// dstip != (dstip & mask) ? modm -= mod[m] : 1;
+		// modm >= M ? modm += M : 1;
+		// dstip &= mask;
+		// printf("%u %u %u\n",m, modm, dstip%M);
 	}
 	return -1;
 }
