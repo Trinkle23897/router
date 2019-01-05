@@ -5,7 +5,6 @@
 
 struct nexthop
 {
-	nexthop *next;
 	char *ifname;
 	uint32_t ifindex; // Nexthop address
 	in_addr nexthopaddr;
@@ -19,8 +18,9 @@ struct route
 };
 
 struct Edge {
-	uint32_t ip, nexthop, ifindex, nxt;
+	uint32_t nxt, ip, mask;
 	char* ifname;
+	uint32_t ifindex, nexthop;
 };
 
 int32_t insert_route(uint32_t, uint32_t, char*, uint32_t);

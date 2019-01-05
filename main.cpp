@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 			if (ip_recvpkt->ip_src.s_addr != ip_recvpkt->ip_dst.s_addr && ip_recvpkt->ip_dst.s_addr != inet_addr("255.255.255.255"))
 			{
 				// 分析打印ip数据包的源和目的ip地址
-				analyseIP(ip_recvpkt);
+				// analyseIP(ip_recvpkt);
 				data = (char*)(skbuf + ETHER_IP_LEN);
 				// 校验计算模块
 				ip *iphead = (ip*)(skbuf + ETHER_HEADER_LEN);
@@ -96,7 +96,7 @@ int main(int argc, char** argv)
 				// 调用查找路由函数lookup_route，获取下一跳ip地址和出接口
 				if (lookup_route(iphead->ip_dst.s_addr, nexthopinfo) == 0)
 				{
-					fprintf(stderr, "source %d.%d.%d.%d find next hop %d.%d.%d.%d\n", TOIP(iphead->ip_dst.s_addr), TOIP(nexthopinfo->nexthopaddr.s_addr));
+					// fprintf(stderr, "source %d.%d.%d.%d find next hop %d.%d.%d.%d\n", TOIP(iphead->ip_dst.s_addr), TOIP(nexthopinfo->nexthopaddr.s_addr));
 				}
 				else {
 					fprintf(stderr, "no next hop\n");
