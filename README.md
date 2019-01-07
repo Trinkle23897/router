@@ -4,6 +4,9 @@ For exp3, use the following command to generate rip executable file:
 
 ```bash
 g++ rip.cpp -orip -O2 -lpthread -DRIP_MAIN
+
+# RUN:
+./rip
 ```
 
 For exp4, just type `mv lookuproute_simple.cpp.bak lookuproute.cpp; make -j` and run `sudo ./main`.
@@ -18,4 +21,6 @@ For exp4, just type `mv lookuproute_simple.cpp.bak lookuproute.cpp; make -j` and
 
 可以理解为我开了32个数组，但是存的时候存得紧凑了点
 
-该算法代码位于 `lookuproute.cpp` 中，不到30行
+该算法代码位于 `lookuproute.cpp` 中，不到30行（后面常数优化了一波，循环展开，做到差不多和4位trie一样快了，代码翻了一倍）
+
+事实上是/32到/13存hash，/12到/1直接数组存下来
