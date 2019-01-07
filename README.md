@@ -82,3 +82,14 @@ For exp4, just type `mv lookuproute_simple.cpp.bak lookuproute.cpp; make -j` and
 该算法代码位于 `lookuproute.cpp` 中，不到30行（后面常数优化了一波，循环展开，做到差不多和4位trie一样快了，代码翻了一倍）
 
 事实上是/32到/13存hash，/12到/1直接数组存下来
+
+如果要单独测试性能的话：
+
+```bash
+mv test.cpp.bak test.cpp
+g++ test.cpp lookuproute.cpp -oa -O2
+# insert 1000 and query 10^7
+time ./a 10000000
+```
+
+本机i7-8750H差不多0.27s，找了个i7-7700HQ大概0.45s
